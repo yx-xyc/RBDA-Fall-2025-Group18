@@ -121,9 +121,40 @@ timestamp,total_ridership,total_transfers,total_stations,manhattan_ridership,bro
 
 ## Usage
 
-### 1. Compile the Programs
+### Quick Start with Makefile (Recommended)
 
-On your Dataproc cluster:
+The project includes a Makefile for easy compilation and pipeline execution.
+
+**Available commands:**
+```bash
+make help          # Show all available commands
+make compile       # Compile all Java files and create JAR files
+make run           # Compile and run the complete pipeline
+make clean         # Remove compiled classes and JAR files
+make clean-output  # Remove HDFS output directories (with confirmation)
+make clean-all     # Clean both local and HDFS files
+make verify        # Check what JAR and class files exist
+make status        # Show pipeline status (local JARs + HDFS output)
+```
+
+**Typical workflow:**
+```bash
+# First time - compile the code
+make compile
+
+# Run the complete pipeline
+make run
+
+# Start fresh (clean everything and rerun)
+make clean-all
+make run
+```
+
+### Alternative: Using Shell Scripts
+
+If you prefer to use the shell scripts directly:
+
+#### 1. Compile the Programs
 
 ```bash
 chmod +x compile.sh
@@ -136,7 +167,7 @@ This creates four JAR files:
 - `mta-borough-hourly.jar` (Job 3: Borough-level aggregation)
 - `mta-citywide-hourly.jar` (Job 4: Citywide aggregation)
 
-### 2. Run the Complete Pipeline
+#### 2. Run the Complete Pipeline
 
 The output path is pre-configured for HDFS:
 ```bash
