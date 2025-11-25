@@ -115,13 +115,13 @@ CREATE TABLE IF NOT EXISTS hive.default.mta_cleaned_2024 (
     transit_timestamp TIMESTAMP,
     station_complex_id VARCHAR,
     station_complex VARCHAR,
-    borough VARCHAR,
     payment_method VARCHAR,
     fare_class_category VARCHAR,
     ridership INTEGER,
     transfers INTEGER,
     latitude DOUBLE,
-    longitude DOUBLE
+    longitude DOUBLE,
+    borough VARCHAR
 )
 WITH (
     format = 'PARQUET',
@@ -206,13 +206,13 @@ SELECT
     CAST(transit_timestamp AS TIMESTAMP),
     station_complex_id,
     station_complex,
-    borough,
     payment_method,
     fare_class_category,
     CAST(ridership AS INTEGER),
     CAST(transfers AS INTEGER),
     CASE WHEN latitude != '' THEN CAST(latitude AS DOUBLE) ELSE NULL END,
-    CASE WHEN longitude != '' THEN CAST(longitude AS DOUBLE) ELSE NULL END
+    CASE WHEN longitude != '' THEN CAST(longitude AS DOUBLE) ELSE NULL END,
+    borough
 FROM hive.default.mta_cleaned_2024_csv;
 
 -- Convert station hourly data
