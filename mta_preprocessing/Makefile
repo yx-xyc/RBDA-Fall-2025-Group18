@@ -18,20 +18,6 @@ CITYWIDE_OUTPUT = $(OUTPUT_BASE)/citywide_hourly
 .PHONY: all
 all: compile
 
-# Help target
-.PHONY: help
-help:
-	@echo "MTA MapReduce Pipeline - Available targets:"
-	@echo ""
-	@echo "  make compile       - Compile all Java MapReduce jobs and create JAR files"
-	@echo "  make run           - Run the complete preprocessing pipeline"
-	@echo "  make clean         - Remove all compiled classes and JAR files"
-	@echo "  make clean-output  - Remove all HDFS output directories"
-	@echo "  make clean-all     - Clean both local files and HDFS output"
-	@echo "  make verify        - Verify JAR files and class files exist"
-	@echo "  make help          - Show this help message"
-	@echo ""
-
 # Compile all Java files and create JARs
 .PHONY: compile
 compile:
@@ -67,17 +53,6 @@ run: compile
 	@echo "====================================="
 	@./run_pipeline.sh
 
-# Verify compiled files
-.PHONY: verify
-verify:
-	@echo "Verifying compiled files..."
-	@echo ""
-	@echo "JAR files:"
-	@ls -lh *.jar 2>/dev/null || echo "  No JAR files found"
-	@echo ""
-	@echo "Class files:"
-	@ls -lh $(CLASSES_DIR)/*.class 2>/dev/null || echo "  No class files found"
-
 # Clean local compiled files
 .PHONY: clean
 clean:
@@ -110,14 +85,3 @@ clean-all: clean
 	@echo ""
 	@hadoop fs -rm -r -skipTrash $(OUTPUT_BASE) 2>/dev/null || true
 	@echo "✓ All local and HDFS files cleaned"
-
-# Show pipeline status
-.PHONY: status
-status:
-	@echo "Pipeline Status:"
-	@echo ""
-	@echo "Local JAR files:"
-	@ls -lh *.jar 2>/dev/null || echo "  No JAR files found"
-	@echo ""
-	@echo "HDFS output directories:"
-	@hadoop fs -ls $(OUTPUT_BASE) 2>/dev/null || echo "  No output directories found"

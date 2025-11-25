@@ -4,7 +4,7 @@
 # This script runs all three MapReduce jobs in sequence
 
 # Configuration
-INPUT_DATA="gs://nyu-dataproc-hdfs-ingest/MTA_Subway_Hourly_Ridership__2020-2024.csv"
+INPUT_DATA="gs://nyu-dataproc-hdfs-ingest/group_18/MTA_Subway_Hourly_Ridership__2020-2024.csv"
 
 # Output location - storing in HDFS under your project directory
 OUTPUT_BASE="project/preprocessing/mta_processed"
