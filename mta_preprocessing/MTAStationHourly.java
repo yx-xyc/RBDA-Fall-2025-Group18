@@ -10,10 +10,10 @@ import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 
 /**
- * MapReduce Job 2: Station-Level Hourly Aggregation
- * - Aggregates ridership and transfers by station and hour
- * - Produces summary statistics for each station per hour
- * - Output: One row per station per hour
+ * MapReduce Aggregation Job: Station-Level Hourly Aggregation
+ * - Aggregates ridership by station, hour, and payment method
+ * - Sums across all fare_class_category values
+ * - Output: One row per station per hour per payment method
  */
 public class MTAStationHourly {
 
@@ -26,48 +26,32 @@ public class MTAStationHourly {
             String line = value.toString();
             String[] fields = line.split(",", -1);
 
-            // Input format from Job 1:
-            // timestamp,station_complex_id,station_complex,borough,
-            // payment_method,fare_class_category,ridership,transfers,latitude,longitude
+            // Input format from cleaning job:
+            // timestamp,station_complex_id,payment_method,fare_class_category,ridership
 
-            if (fields.length < 10) {
+            if (fields.length < 5) {
                 return;
             }
 
             String timestamp = fields[0];
             String stationId = fields[1];
-            String stationName = fields[2];
-            String borough = fields[3];
-            String paymentMethod = fields[4];
-            String fareCategory = fields[5];
-            String ridershipStr = fields[6];
-            String transfersStr = fields[7];
-            String latitude = fields[8];
-            String longitude = fields[9];
+            String paymentMethod = fields[2];
+            // fields[3] is fare_class_category - we're aggregating across all fare classes
+            String ridershipStr = fields[4];
 
             int ridership = 0;
-            int transfers = 0;
-
             try {
                 ridership = Integer.parseInt(ridershipStr);
-                transfers = Integer.parseInt(transfersStr);
             } catch (NumberFormatException e) {
                 // Skip invalid records
                 return;
             }
 
-            // Create composite key: timestamp|station_id|station_name|borough|lat|lon
-            String compositeKey = String.join("|",
-                timestamp, stationId, stationName, borough, latitude, longitude);
+            // Composite key: timestamp|station_complex_id|payment_method
+            String compositeKey = String.join("|", timestamp, stationId, paymentMethod);
 
-            // Value contains: ridership,transfers,payment_method,fare_category
-            String compositeValue = String.join("|",
-                String.valueOf(ridership),
-                String.valueOf(transfers),
-                paymentMethod,
-                fareCategory);
-
-            context.write(new Text(compositeKey), new Text(compositeValue));
+            // Value is just the ridership
+            context.write(new Text(compositeKey), new Text(String.valueOf(ridership)));
         }
     }
 
@@ -78,83 +62,33 @@ public class MTAStationHourly {
                 throws IOException, InterruptedException {
 
             int totalRidership = 0;
-            int totalTransfers = 0;
-            int recordCount = 0;
 
-            // Track payment method distribution
-            int metrocardCount = 0;
-            int omnyCount = 0;
-
-            // Track fare categories
-            int fullFareCount = 0;
-            int seniorDisabilityCount = 0;
-            int unlimitedCount = 0;
-            int studentCount = 0;
-            int fairFareCount = 0;
-            int otherFareCount = 0;
-
+            // Sum all ridership values
             for (Text value : values) {
-                String[] parts = value.toString().split("\\|");
-                if (parts.length < 4) continue;
-
-                int ridership = Integer.parseInt(parts[0]);
-                int transfers = Integer.parseInt(parts[1]);
-                String paymentMethod = parts[2].toLowerCase();
-                String fareCategory = parts[3].toLowerCase();
-
-                totalRidership += ridership;
-                totalTransfers += transfers;
-                recordCount++;
-
-                // Count payment methods
-                if (paymentMethod.contains("metrocard")) {
-                    metrocardCount++;
-                } else if (paymentMethod.contains("omny")) {
-                    omnyCount++;
-                }
-
-                // Count fare categories
-                if (fareCategory.contains("full fare")) {
-                    fullFareCount++;
-                } else if (fareCategory.contains("senior") || fareCategory.contains("disability")) {
-                    seniorDisabilityCount++;
-                } else if (fareCategory.contains("unlimited")) {
-                    unlimitedCount++;
-                } else if (fareCategory.contains("student")) {
-                    studentCount++;
-                } else if (fareCategory.contains("fair fare")) {
-                    fairFareCount++;
-                } else {
-                    otherFareCount++;
+                try {
+                    totalRidership += Integer.parseInt(value.toString());
+                } catch (NumberFormatException e) {
+                    // Skip invalid values
+                    continue;
                 }
             }
 
-            // Output format:
-            // timestamp,station_id,station_name,borough,latitude,longitude,
-            // total_ridership,total_transfers,record_count,
-            // metrocard_txns,omny_txns,
-            // full_fare_txns,senior_disability_txns,unlimited_txns,student_txns,fair_fare_txns,other_txns
-
+            // Parse key components
             String[] keyParts = key.toString().split("\\|");
-            StringBuilder output = new StringBuilder();
-
-            // Key components
-            for (String part : keyParts) {
-                output.append(part).append(",");
+            if (keyParts.length < 3) {
+                return;
             }
 
-            // Aggregated values
-            output.append(totalRidership).append(",");
-            output.append(totalTransfers).append(",");
-            output.append(recordCount).append(",");
-            output.append(metrocardCount).append(",");
-            output.append(omnyCount).append(",");
-            output.append(fullFareCount).append(",");
-            output.append(seniorDisabilityCount).append(",");
-            output.append(unlimitedCount).append(",");
-            output.append(studentCount).append(",");
-            output.append(fairFareCount).append(",");
-            output.append(otherFareCount);
+            String timestamp = keyParts[0];
+            String stationId = keyParts[1];
+            String paymentMethod = keyParts[2];
+
+            // Output format: timestamp,station_complex_id,payment_method,total_ridership
+            StringBuilder output = new StringBuilder();
+            output.append(timestamp).append(",");
+            output.append(stationId).append(",");
+            output.append(paymentMethod).append(",");
+            output.append(totalRidership);
 
             context.write(null, new Text(output.toString()));
         }
@@ -167,7 +101,7 @@ public class MTAStationHourly {
         }
 
         Configuration conf = new Configuration();
-        Job job = Job.getInstance(conf, "MTA Station-Level Hourly Aggregation");
+        Job job = Job.getInstance(conf, "MTA Station-Level Hourly Aggregation by Payment Method");
 
         job.setJarByClass(MTAStationHourly.class);
         job.setMapperClass(AggregationMapper.class);

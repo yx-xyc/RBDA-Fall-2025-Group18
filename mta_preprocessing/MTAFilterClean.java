@@ -14,15 +14,8 @@ import java.text.SimpleDateFormat;
 import java.text.ParseException;
 import java.util.Date;
 
-/**
- * MapReduce Job 1: Filter and Clean MTA Data
- * - Filters records to only 2024 data
- * - Validates and cleans null/invalid values
- * - Reports data quality statistics via counters
- */
 public class MTAFilterClean {
 
-    // Counters for tracking data quality
     public enum DataQualityCounters {
         TOTAL_RECORDS,
         VALID_RECORDS,
@@ -30,11 +23,8 @@ public class MTAFilterClean {
         INVALID_TIMESTAMP,
         INVALID_STATION_ID,
         INVALID_RIDERSHIP,
-        INVALID_TRANSFERS,
-        INVALID_COORDINATES,
-        NULL_BOROUGH,
         NULL_PAYMENT_METHOD,
-        RECORDS_WITH_ZERO_RIDERSHIP
+        NULL_FARE_CLASS_CATEGORY
     }
 
     public static class FilterCleanMapper extends Mapper<LongWritable, Text, Text, NullWritable> {
@@ -92,107 +82,53 @@ public class MTAFilterClean {
                 return;
             }
 
-            // 2. Validate station_complex_id
+            // 2. Validate station_complex_id - drop if invalid
             String stationId = fields[2];
             if (isNullOrEmpty(stationId)) {
                 context.getCounter(DataQualityCounters.INVALID_STATION_ID).increment(1);
-                // Use "UNKNOWN" for missing station IDs
-                stationId = "UNKNOWN";
+                return;  // Drop record
             }
 
-            // 3. Validate and clean ridership
+            // 3. Validate ridership - drop if invalid or zero
             String ridershipStr = fields[7];
             int ridership = 0;
             try {
-                if (!isNullOrEmpty(ridershipStr)) {
-                    ridership = Integer.parseInt(ridershipStr);
-                    if (ridership < 0) {
-                        ridership = 0;
-                        context.getCounter(DataQualityCounters.INVALID_RIDERSHIP).increment(1);
-                    }
-                } else {
+                if (isNullOrEmpty(ridershipStr)) {
                     context.getCounter(DataQualityCounters.INVALID_RIDERSHIP).increment(1);
+                    return;  // Drop record
+                }
+                ridership = Integer.parseInt(ridershipStr);
+                if (ridership <= 0) {  // Drop records with zero or negative ridership
+                    context.getCounter(DataQualityCounters.INVALID_RIDERSHIP).increment(1);
+                    return;  // Drop record
                 }
             } catch (NumberFormatException e) {
                 context.getCounter(DataQualityCounters.INVALID_RIDERSHIP).increment(1);
-                ridership = 0;
+                return;  // Drop record
             }
 
-            // Track records with zero ridership
-            if (ridership == 0) {
-                context.getCounter(DataQualityCounters.RECORDS_WITH_ZERO_RIDERSHIP).increment(1);
-            }
-
-            // 4. Validate and clean transfers
-            String transfersStr = fields[8];
-            int transfers = 0;
-            try {
-                if (!isNullOrEmpty(transfersStr)) {
-                    transfers = Integer.parseInt(transfersStr);
-                    if (transfers < 0) {
-                        transfers = 0;
-                        context.getCounter(DataQualityCounters.INVALID_TRANSFERS).increment(1);
-                    }
-                } else {
-                    context.getCounter(DataQualityCounters.INVALID_TRANSFERS).increment(1);
-                }
-            } catch (NumberFormatException e) {
-                context.getCounter(DataQualityCounters.INVALID_TRANSFERS).increment(1);
-                transfers = 0;
-            }
-
-            // 5. Validate coordinates
-            String latitude = fields[9];
-            String longitude = fields[10];
-            try {
-                if (!isNullOrEmpty(latitude) && !isNullOrEmpty(longitude)) {
-                    double lat = Double.parseDouble(latitude);
-                    double lon = Double.parseDouble(longitude);
-                    // Validate NYC coordinate ranges
-                    if (lat < 40.4 || lat > 41.0 || lon < -74.3 || lon > -73.7) {
-                        context.getCounter(DataQualityCounters.INVALID_COORDINATES).increment(1);
-                        latitude = "";
-                        longitude = "";
-                    }
-                } else {
-                    context.getCounter(DataQualityCounters.INVALID_COORDINATES).increment(1);
-                    latitude = "";
-                    longitude = "";
-                }
-            } catch (NumberFormatException e) {
-                context.getCounter(DataQualityCounters.INVALID_COORDINATES).increment(1);
-                latitude = "";
-                longitude = "";
-            }
-
-            // 6. Check borough
-            String borough = fields[4];
-            if (isNullOrEmpty(borough)) {
-                context.getCounter(DataQualityCounters.NULL_BOROUGH).increment(1);
-                borough = "UNKNOWN";
-            }
-
-            // 7. Check payment method
+            // 4. Validate payment_method - drop if invalid
             String paymentMethod = fields[5];
             if (isNullOrEmpty(paymentMethod)) {
                 context.getCounter(DataQualityCounters.NULL_PAYMENT_METHOD).increment(1);
-                paymentMethod = "UNKNOWN";
+                return;  // Drop record
             }
 
-            // Build cleaned output record with selected columns
-            // Output format: timestamp,station_complex_id,station_complex,borough,
-            //                payment_method,fare_class_category,ridership,transfers,latitude,longitude
+            // 5. Validate fare_class_category - drop if invalid
+            String fareClassCategory = fields[6];
+            if (isNullOrEmpty(fareClassCategory)) {
+                context.getCounter(DataQualityCounters.NULL_FARE_CLASS_CATEGORY).increment(1);
+                return;  // Drop record
+            }
+
+            // Build cleaned output record with 5 fields only
+            // Output format: timestamp,station_complex_id,payment_method,fare_class_category,ridership
             StringBuilder output = new StringBuilder();
             output.append(timestamp).append(",");
             output.append(stationId).append(",");
-            output.append(cleanField(fields[3])).append(",");  // station_complex
-            output.append(borough).append(",");
             output.append(paymentMethod).append(",");
-            output.append(cleanField(fields[6])).append(",");  // fare_class_category
-            output.append(ridership).append(",");
-            output.append(transfers).append(",");
-            output.append(latitude).append(",");
-            output.append(longitude);
+            output.append(fareClassCategory).append(",");
+            output.append(ridership);
 
             context.getCounter(DataQualityCounters.VALID_RECORDS).increment(1);
             context.write(new Text(output.toString()), NullWritable.get());
@@ -201,13 +137,7 @@ public class MTAFilterClean {
         private boolean isNullOrEmpty(String str) {
             return str == null || str.trim().isEmpty() ||
                    str.equalsIgnoreCase("null") ||
-                   str.equalsIgnoreCase("none") ||
-                   str.equals("0");
-        }
-
-        private String cleanField(String field) {
-            if (field == null) return "";
-            return field.replace(",", ";");  // Replace commas to avoid CSV issues
+                   str.equalsIgnoreCase("none");
         }
     }
 

@@ -4,15 +4,13 @@
 # Configuration
 HADOOP_CLASSPATH = $(shell hadoop classpath)
 CLASSES_DIR = classes
-JAVA_FILES = MTAFilterClean.java MTAStationHourly.java MTABoroughHourly.java MTACitywideHourly.java
-JAR_FILES = mta-filter-clean.jar mta-station-hourly.jar mta-borough-hourly.jar mta-citywide-hourly.jar
+JAVA_FILES = MTAFilterClean.java MTAStationHourly.java
+JAR_FILES = mta-filter-clean.jar mta-station-hourly.jar
 
 # HDFS paths
 OUTPUT_BASE = project/preprocessing/mta_processed
 CLEANED_OUTPUT = $(OUTPUT_BASE)/cleaned
 STATION_OUTPUT = $(OUTPUT_BASE)/station_hourly
-BOROUGH_OUTPUT = $(OUTPUT_BASE)/borough_hourly
-CITYWIDE_OUTPUT = $(OUTPUT_BASE)/citywide_hourly
 
 # Default target
 .PHONY: all
@@ -25,20 +23,14 @@ compile:
 	@echo "Compiling MTA MapReduce jobs..."
 	@echo "====================================="
 	@mkdir -p $(CLASSES_DIR)
-	@echo "Compiling MTAFilterClean.java..."
+	@echo "Compiling MTAFilterClean.java (Cleaning Job)..."
 	@javac -classpath $(HADOOP_CLASSPATH) -d $(CLASSES_DIR) MTAFilterClean.java
-	@echo "Compiling MTAStationHourly.java..."
+	@echo "Compiling MTAStationHourly.java (Aggregation Job)..."
 	@javac -classpath $(HADOOP_CLASSPATH) -d $(CLASSES_DIR) MTAStationHourly.java
-	@echo "Compiling MTABoroughHourly.java..."
-	@javac -classpath $(HADOOP_CLASSPATH) -d $(CLASSES_DIR) MTABoroughHourly.java
-	@echo "Compiling MTACitywideHourly.java..."
-	@javac -classpath $(HADOOP_CLASSPATH) -d $(CLASSES_DIR) MTACitywideHourly.java
 	@echo ""
 	@echo "Creating JAR files..."
 	@cd $(CLASSES_DIR) && jar -cvf ../mta-filter-clean.jar MTAFilterClean*.class
 	@cd $(CLASSES_DIR) && jar -cvf ../mta-station-hourly.jar MTAStationHourly*.class
-	@cd $(CLASSES_DIR) && jar -cvf ../mta-borough-hourly.jar MTABoroughHourly*.class
-	@cd $(CLASSES_DIR) && jar -cvf ../mta-citywide-hourly.jar MTACitywideHourly*.class
 	@echo ""
 	@echo "✓ Compilation complete!"
 	@echo "Generated JAR files:"
@@ -68,8 +60,6 @@ clean-output:
 	@echo "This will remove:"
 	@echo "  - $(CLEANED_OUTPUT)"
 	@echo "  - $(STATION_OUTPUT)"
-	@echo "  - $(BOROUGH_OUTPUT)"
-	@echo "  - $(CITYWIDE_OUTPUT)"
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \

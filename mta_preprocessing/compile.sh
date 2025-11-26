@@ -15,31 +15,17 @@ export HADOOP_CLASSPATH=$(hadoop classpath)
 mkdir -p classes
 
 # Compile all Java files
-echo "Compiling MTAFilterClean.java..."
+echo "Compiling MTAFilterClean.java (Cleaning Job)..."
 javac -classpath $HADOOP_CLASSPATH -d classes MTAFilterClean.java
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to compile MTAFilterClean.java"
     exit 1
 fi
 
-echo "Compiling MTAStationHourly.java..."
+echo "Compiling MTAStationHourly.java (Aggregation Job)..."
 javac -classpath $HADOOP_CLASSPATH -d classes MTAStationHourly.java
 if [ $? -ne 0 ]; then
     echo "ERROR: Failed to compile MTAStationHourly.java"
-    exit 1
-fi
-
-echo "Compiling MTABoroughHourly.java..."
-javac -classpath $HADOOP_CLASSPATH -d classes MTABoroughHourly.java
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to compile MTABoroughHourly.java"
-    exit 1
-fi
-
-echo "Compiling MTACitywideHourly.java..."
-javac -classpath $HADOOP_CLASSPATH -d classes MTACitywideHourly.java
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to compile MTACitywideHourly.java"
     exit 1
 fi
 
@@ -52,13 +38,9 @@ echo "Creating JAR files..."
 cd classes
 jar -cvf ../mta-filter-clean.jar MTAFilterClean*.class
 jar -cvf ../mta-station-hourly.jar MTAStationHourly*.class
-jar -cvf ../mta-borough-hourly.jar MTABoroughHourly*.class
-jar -cvf ../mta-citywide-hourly.jar MTACitywideHourly*.class
 cd ..
 
 echo "Compilation complete!"
 echo "Generated JAR files:"
-echo "  - mta-filter-clean.jar          (Job 1: Filter & Clean)"
-echo "  - mta-station-hourly.jar        (Job 2: Station-level aggregation)"
-echo "  - mta-borough-hourly.jar        (Job 3: Borough-level aggregation)"
-echo "  - mta-citywide-hourly.jar       (Job 4: Citywide aggregation)"
+echo "  - mta-filter-clean.jar          (Cleaning Job)"
+echo "  - mta-station-hourly.jar        (Aggregation Job)"
