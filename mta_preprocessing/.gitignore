@@ -1,0 +1,35 @@
+# Compiled Java class files
+classes/
+*.class
+
+# JAR files
+*.jar
+
+# Build artifacts
+build/
+target/
+dist/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*~
+
+# Hadoop/MapReduce outputs (if accidentally downloaded locally)
+part-*
+_SUCCESS
+_logs/
