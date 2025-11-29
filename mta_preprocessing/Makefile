@@ -1,5 +1,4 @@
 # Makefile for MTA MapReduce Pipeline
-# Author: RBDA Fall 2025 Group 18
 
 # Configuration
 HADOOP_CLASSPATH = $(shell hadoop classpath)
