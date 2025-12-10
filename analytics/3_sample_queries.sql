@@ -99,15 +99,7 @@ GROUP BY
         WHEN avg_temp_f < 85 THEN 'Warm (70-85°F)'
         ELSE 'Hot (>85°F)'
     END
-ORDER BY
-    CASE
-        WHEN avg_temp_f < 20 THEN 1
-        WHEN avg_temp_f < 32 THEN 2
-        WHEN avg_temp_f < 50 THEN 3
-        WHEN avg_temp_f < 70 THEN 4
-        WHEN avg_temp_f < 85 THEN 5
-        ELSE 6
-    END;
+ORDER BY temp_range;
 
 -- ============================================
 -- Query 4: Crime and Late-Night Subway Usage
