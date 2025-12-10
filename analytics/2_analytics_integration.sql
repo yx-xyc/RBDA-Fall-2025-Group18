@@ -11,12 +11,11 @@
 -- Run: trino --catalog hive --schema yx2021_nyu_edu -f 2_analytics_integration.sql
 -- ============================================
 
--- DROP TABLE IF EXISTS analytics_hourly_subway;
+DROP TABLE IF EXISTS analytics_hourly_subway_v3;
 
-CREATE TABLE analytics_hourly_subway_v2
+CREATE TABLE analytics_hourly_subway_v3
 WITH (
-    format = 'PARQUET',
-    partitioned_by = ARRAY['analysis_date']
+    format = 'PARQUET'
 )
 AS
 SELECT
@@ -90,11 +89,11 @@ SELECT
     COUNT(DISTINCT analysis_date) as total_days,
     MIN(hour_timestamp) as earliest_hour,
     MAX(hour_timestamp) as latest_hour
-FROM analytics_hourly_subway_v2;
+FROM analytics_hourly_subway_v3;
 
 -- Sample the data
 SELECT *
-FROM analytics_hourly_subway_v2
+FROM analytics_hourly_subway_v3
 ORDER BY hour_timestamp DESC
 LIMIT 10;
 
@@ -105,7 +104,7 @@ SELECT
     SUM(total_subway_ridership) as daily_subway_rides,
     AVG(avg_temp_f) as avg_daily_temp,
     MAX(daily_total_crimes) as daily_crimes
-FROM analytics_hourly_subway_v2
+FROM analytics_hourly_subway_v3
 GROUP BY analysis_date
 ORDER BY analysis_date DESC
 LIMIT 10;
