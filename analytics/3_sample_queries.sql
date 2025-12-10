@@ -29,7 +29,7 @@ SELECT
           AVG(CASE WHEN total_precip_inch = 0 THEN total_subway_ridership END)) /
           NULLIF(AVG(CASE WHEN total_precip_inch = 0 THEN total_subway_ridership END), 0), 2) as pct_change_from_baseline
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE total_subway_ridership > 0
 GROUP BY
     CASE
@@ -65,7 +65,7 @@ SELECT
     -- Average weather during this hour
     ROUND(AVG(avg_temp_f), 1) as avg_temp
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 GROUP BY day_type, hour_of_day
 ORDER BY day_type, hour_of_day;
 
@@ -88,7 +88,7 @@ SELECT
     ROUND(AVG(total_subway_ridership), 0) as avg_subway_riders,
     ROUND(STDDEV(total_subway_ridership), 0) as stddev_riders
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE total_subway_ridership > 0
 GROUP BY
     CASE
@@ -133,7 +133,7 @@ SELECT
     -- Crime per 1000 riders
     ROUND(AVG(daily_total_crimes) * 1000.0 / NULLIF(AVG(total_subway_ridership), 0), 2) as crimes_per_1000_riders
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE daily_total_crimes > 0 AND total_subway_ridership > 0
 GROUP BY
     CASE
@@ -172,7 +172,7 @@ SELECT
     ROUND(AVG(avg_temp_f), 1) as avg_temp,
     ROUND(AVG(avg_visibility_miles), 1) as avg_visibility
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE total_subway_ridership > 0
 GROUP BY
     CASE
@@ -210,7 +210,7 @@ SELECT
     -- Rank by ridership
     ROW_NUMBER() OVER (ORDER BY total_subway_ridership DESC) as ridership_rank
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE total_subway_ridership > 0
 ORDER BY total_subway_ridership DESC
 LIMIT 20;
@@ -233,7 +233,7 @@ SELECT
     ROUND(AVG(avg_temp_f), 1) as avg_temp,
     ROUND(SUM(total_precip_inch), 2) as total_weekly_precip
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE total_subway_ridership > 0
 GROUP BY DATE_TRUNC('week', hour_timestamp)
 ORDER BY week;
@@ -266,7 +266,7 @@ SELECT
         ELSE 'Normal'
     END as weather_event_type
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 GROUP BY DATE(hour_timestamp), day_type
 HAVING
     MAX(total_precip_inch) > 0.5
@@ -298,7 +298,7 @@ SELECT
     -- Crime-to-ridership ratio
     ROUND(daily_total_crimes * 1.0 / NULLIF(SUM(total_subway_ridership), 0) * 10000, 2) as crimes_per_10k_riders
 
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway_v3
 WHERE daily_total_crimes > 0 AND total_subway_ridership > 0
 GROUP BY
     analysis_date,
@@ -339,7 +339,7 @@ SELECT
     -- Crime summary
     ROUND(SUM(daily_total_crimes) / COUNT(DISTINCT analysis_date), 0) as avg_daily_crimes
 
-FROM hive.default.analytics_hourly_subway;
+FROM analytics_hourly_subway_v3;
 
 -- ============================================
 -- ALL QUERIES COMPLETE
