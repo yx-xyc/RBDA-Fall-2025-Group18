@@ -134,13 +134,7 @@ GROUP BY
         WHEN hour_of_day BETWEEN 12 AND 17 THEN 'Afternoon (12pm-6pm)'
         ELSE 'Evening (6pm-10pm)'
     END
-ORDER BY
-    CASE
-        WHEN hour_of_day BETWEEN 6 AND 11 THEN 1
-        WHEN hour_of_day BETWEEN 12 AND 17 THEN 2
-        WHEN hour_of_day BETWEEN 18 AND 21 THEN 3
-        ELSE 4
-    END;
+ORDER BY time_period;
 
 -- ============================================
 -- Query 5: Snow/Ice Impact on Subway Usage
