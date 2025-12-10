@@ -1,16 +1,16 @@
 -- ============================================
 -- SAMPLE ANALYTICAL QUERIES
 -- ============================================
--- This script contains sample queries to analyze the integrated dataset
--- Run individual queries or all at once: trino --catalog hive --schema default -f 3_sample_queries.sql
+-- Weather, MTA Subway, and Crime Analysis
+-- Run: trino --catalog hive --schema default -f 3_sample_queries.sql
 --
 -- Prerequisites: Run 1_create_external_tables.sql and 2_analytics_integration.sql first
 -- ============================================
 
 -- ============================================
--- Query 1: Weather Impact on Transportation Mode Choice
+-- Query 1: Weather Impact on Subway Ridership
 -- ============================================
--- Question: How does precipitation affect the choice between subway and rideshare?
+-- Question: How does precipitation affect subway usage?
 
 SELECT
     CASE
@@ -21,20 +21,16 @@ SELECT
     END as precipitation_level,
 
     COUNT(*) as hour_count,
-
-    -- Average ridership/usage
     ROUND(AVG(total_subway_ridership), 0) as avg_subway_riders,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_rideshare_trips,
+    ROUND(STDDEV(total_subway_ridership), 0) as stddev_subway_riders,
 
-    -- Mode preference ratio
-    ROUND(AVG(subway_to_rideshare_ratio), 2) as avg_subway_to_rideshare_ratio,
+    -- Percent difference from no-rain baseline
+    ROUND(100.0 * (AVG(total_subway_ridership) -
+          AVG(CASE WHEN total_precip_inch = 0 THEN total_subway_ridership END)) /
+          NULLIF(AVG(CASE WHEN total_precip_inch = 0 THEN total_subway_ridership END), 0), 2) as pct_change_from_baseline
 
-    -- Percent change in usage
-    ROUND(100.0 * (AVG(total_rideshare_trips) - AVG(CASE WHEN total_precip_inch = 0 THEN total_rideshare_trips END)) /
-          NULLIF(AVG(CASE WHEN total_precip_inch = 0 THEN total_rideshare_trips END), 0), 2) as rideshare_pct_change
-
-FROM hive.default.analytics_hourly_mobility
-WHERE total_subway_ridership > 0 OR total_rideshare_trips > 0
+FROM hive.default.analytics_hourly_subway
+WHERE total_subway_ridership > 0
 GROUP BY
     CASE
         WHEN total_precip_inch = 0 THEN 'No Rain'
@@ -45,18 +41,18 @@ GROUP BY
 ORDER BY precipitation_level;
 
 -- ============================================
--- Query 2: Hourly Mobility Patterns by Day Type
+-- Query 2: Hourly Subway Patterns by Day Type
 -- ============================================
--- Question: How do mobility patterns differ between weekdays and weekends?
+-- Question: How do ridership patterns differ between weekdays and weekends?
 
 SELECT
     day_type,
     hour_of_day,
 
-    -- Transportation metrics
+    -- Ridership metrics
     ROUND(AVG(total_subway_ridership), 0) as avg_subway_riders,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_rideshare_trips,
-    ROUND(AVG(total_mobility_trips), 0) as avg_total_mobility,
+    ROUND(MIN(total_subway_ridership), 0) as min_riders,
+    ROUND(MAX(total_subway_ridership), 0) as max_riders,
 
     -- Peak indicators
     CASE
@@ -64,16 +60,19 @@ SELECT
         WHEN hour_of_day BETWEEN 17 AND 19 THEN 'Evening Rush'
         WHEN hour_of_day BETWEEN 22 AND 5 THEN 'Late Night'
         ELSE 'Off-Peak'
-    END as time_period
+    END as time_period,
 
-FROM hive.default.analytics_hourly_mobility
+    -- Average weather during this hour
+    ROUND(AVG(avg_temp_f), 1) as avg_temp
+
+FROM hive.default.analytics_hourly_subway
 GROUP BY day_type, hour_of_day
 ORDER BY day_type, hour_of_day;
 
 -- ============================================
--- Query 3: Temperature Impact on Mobility
+-- Query 3: Temperature Impact on Ridership
 -- ============================================
--- Question: How does temperature affect overall mobility?
+-- Question: How does temperature affect subway usage?
 
 SELECT
     CASE
@@ -86,19 +85,11 @@ SELECT
     END as temp_range,
 
     COUNT(*) as hour_count,
-
-    -- Mobility metrics
     ROUND(AVG(total_subway_ridership), 0) as avg_subway_riders,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_rideshare_trips,
-    ROUND(AVG(total_mobility_trips), 0) as avg_total_mobility,
+    ROUND(STDDEV(total_subway_ridership), 0) as stddev_riders
 
-    -- Cost metrics
-    ROUND(AVG(avg_rideshare_cost), 2) as avg_ride_cost,
-
-    -- Shared ride adoption
-    ROUND(AVG(avg_shared_ride_pct), 2) as avg_shared_pct
-
-FROM hive.default.analytics_hourly_mobility
+FROM hive.default.analytics_hourly_subway
+WHERE total_subway_ridership > 0
 GROUP BY
     CASE
         WHEN avg_temp_f < 20 THEN 'Extreme Cold (<20°F)'
@@ -119,9 +110,9 @@ ORDER BY
     END;
 
 -- ============================================
--- Query 4: Crime and Mobility Correlation
+-- Query 4: Crime and Late-Night Subway Usage
 -- ============================================
--- Question: Is there a relationship between crime levels and late-night mobility?
+-- Question: Is there a relationship between crime levels and late-night ridership?
 
 SELECT
     CASE
@@ -136,17 +127,14 @@ SELECT
     ROUND(AVG(daily_assault_count), 0) as avg_assaults,
     ROUND(AVG(daily_theft_count), 0) as avg_thefts,
 
-    -- Mobility metrics
+    -- Subway metrics
     ROUND(AVG(total_subway_ridership), 0) as avg_subway_riders,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_rideshare_trips,
 
-    -- Safety-related behavior
-    ROUND(AVG(CASE WHEN total_rideshare_trips > 0
-        THEN 100.0 * total_rideshare_trips / NULLIF(total_mobility_trips, 0)
-        ELSE 0 END), 2) as rideshare_pct_of_mobility
+    -- Crime per 1000 riders
+    ROUND(AVG(daily_total_crimes) * 1000.0 / NULLIF(AVG(total_subway_ridership), 0), 2) as crimes_per_1000_riders
 
-FROM hive.default.analytics_hourly_mobility
-WHERE daily_total_crimes > 0
+FROM hive.default.analytics_hourly_subway
+WHERE daily_total_crimes > 0 AND total_subway_ridership > 0
 GROUP BY
     CASE
         WHEN hour_of_day BETWEEN 22 AND 23 OR hour_of_day BETWEEN 0 AND 5 THEN 'Late Night (10pm-6am)'
@@ -163,9 +151,9 @@ ORDER BY
     END;
 
 -- ============================================
--- Query 5: Snow/Ice Impact on Transportation Safety and Usage
+-- Query 5: Snow/Ice Impact on Subway Usage
 -- ============================================
--- Question: How do snow conditions affect transportation choices and rideshare costs?
+-- Question: How do snow conditions affect ridership?
 
 SELECT
     CASE
@@ -178,19 +166,14 @@ SELECT
     is_freezing as is_below_freezing,
 
     COUNT(*) as hour_count,
-
-    -- Mobility metrics
     ROUND(AVG(total_subway_ridership), 0) as avg_subway_riders,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_rideshare_trips,
 
-    -- Cost and duration (may increase in snow)
-    ROUND(AVG(avg_rideshare_cost), 2) as avg_ride_cost,
-    ROUND(AVG(avg_rideshare_duration_min), 2) as avg_ride_duration_min,
+    -- Weather severity
+    ROUND(AVG(avg_temp_f), 1) as avg_temp,
+    ROUND(AVG(avg_visibility_miles), 1) as avg_visibility
 
-    -- Safety metrics
-    ROUND(AVG(daily_vehicle_crime_count), 1) as avg_vehicle_crimes
-
-FROM hive.default.analytics_hourly_mobility
+FROM hive.default.analytics_hourly_subway
+WHERE total_subway_ridership > 0
 GROUP BY
     CASE
         WHEN total_snow_inch = 0 AND avg_snow_depth_inch = 0 THEN 'No Snow'
@@ -204,38 +187,38 @@ ORDER BY
     snow_condition;
 
 -- ============================================
--- Query 6: Peak Demand Analysis (Rush Hours)
+-- Query 6: Peak Subway Demand Analysis
 -- ============================================
--- Question: What are the busiest times and what factors contribute to peak demand?
+-- Question: What are the busiest subway times and contributing factors?
 
 SELECT
     DATE(hour_timestamp) as date,
     hour_of_day,
     day_type,
 
-    -- Mobility metrics
-    total_mobility_trips,
+    -- Ridership
     total_subway_ridership,
-    total_rideshare_trips,
-    subway_to_rideshare_ratio,
 
     -- Weather conditions
     avg_temp_f,
     total_precip_inch,
     dom_conditions,
 
-    -- Rank by total mobility
-    ROW_NUMBER() OVER (ORDER BY total_mobility_trips DESC) as mobility_rank
+    -- Crime context
+    daily_total_crimes,
 
-FROM hive.default.analytics_hourly_mobility
-WHERE total_mobility_trips > 0
-ORDER BY total_mobility_trips DESC
+    -- Rank by ridership
+    ROW_NUMBER() OVER (ORDER BY total_subway_ridership DESC) as ridership_rank
+
+FROM hive.default.analytics_hourly_subway
+WHERE total_subway_ridership > 0
+ORDER BY total_subway_ridership DESC
 LIMIT 20;
 
 -- ============================================
--- Query 7: Payment Method Trends (OMNY vs MetroCard)
+-- Query 7: Payment Method Adoption Trends (OMNY vs MetroCard)
 -- ============================================
--- Question: How is OMNY adoption progressing and does it correlate with other factors?
+-- Question: How is OMNY adoption progressing?
 
 SELECT
     DATE_TRUNC('week', hour_timestamp) as week,
@@ -244,23 +227,21 @@ SELECT
     ROUND(AVG(omny_pct), 2) as avg_omny_pct,
     SUM(omny_ridership) as total_omny_rides,
     SUM(metrocard_ridership) as total_metrocard_rides,
-
-    -- Total subway usage
     SUM(total_subway_ridership) as total_subway_rides,
 
-    -- Weather correlation
+    -- Weather context
     ROUND(AVG(avg_temp_f), 1) as avg_temp,
-    ROUND(AVG(total_precip_inch), 2) as avg_precip
+    ROUND(SUM(total_precip_inch), 2) as total_weekly_precip
 
-FROM hive.default.analytics_hourly_mobility
+FROM hive.default.analytics_hourly_subway
 WHERE total_subway_ridership > 0
 GROUP BY DATE_TRUNC('week', hour_timestamp)
 ORDER BY week;
 
 -- ============================================
--- Query 8: Adverse Weather Event Impact
+-- Query 8: Severe Weather Event Impact
 -- ============================================
--- Question: How do severe weather events impact mobility?
+-- Question: How do extreme weather events impact ridership?
 
 SELECT
     DATE(hour_timestamp) as date,
@@ -272,14 +253,9 @@ SELECT
     MIN(avg_temp_f) as min_temp,
     MIN(avg_visibility_miles) as min_visibility,
 
-    -- Daily mobility totals
+    -- Daily subway totals
     SUM(total_subway_ridership) as daily_subway_riders,
-    SUM(total_rideshare_trips) as daily_rideshare_trips,
-    SUM(total_mobility_trips) as daily_total_mobility,
-
-    -- Average hourly metrics
     ROUND(AVG(total_subway_ridership), 0) as avg_hourly_subway,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_hourly_rideshare,
 
     -- Identify severe weather days
     CASE
@@ -290,7 +266,7 @@ SELECT
         ELSE 'Normal'
     END as weather_event_type
 
-FROM hive.default.analytics_hourly_mobility
+FROM hive.default.analytics_hourly_subway
 GROUP BY DATE(hour_timestamp), day_type
 HAVING
     MAX(total_precip_inch) > 0.5
@@ -300,9 +276,9 @@ HAVING
 ORDER BY date DESC;
 
 -- ============================================
--- Query 9: Borough-Level Crime Analysis
+-- Query 9: Borough-Level Crime and Subway Usage
 -- ============================================
--- Question: How does crime distribution across boroughs relate to overall mobility?
+-- Question: How does crime distribution across boroughs relate to ridership?
 
 SELECT
     analysis_date,
@@ -316,15 +292,14 @@ SELECT
     daily_staten_island_crimes,
     daily_total_crimes,
 
-    -- Mobility metrics
-    AVG(total_subway_ridership) as avg_hourly_subway,
-    AVG(total_rideshare_trips) as avg_hourly_rideshare,
+    -- Subway metrics
+    ROUND(AVG(total_subway_ridership), 0) as avg_hourly_subway,
 
-    -- Crime-to-mobility ratio
-    ROUND(daily_total_crimes * 1.0 / NULLIF(SUM(total_mobility_trips), 0) * 1000, 2) as crimes_per_1000_trips
+    -- Crime-to-ridership ratio
+    ROUND(daily_total_crimes * 1.0 / NULLIF(SUM(total_subway_ridership), 0) * 10000, 2) as crimes_per_10k_riders
 
-FROM hive.default.analytics_hourly_mobility
-WHERE daily_total_crimes > 0
+FROM hive.default.analytics_hourly_subway
+WHERE daily_total_crimes > 0 AND total_subway_ridership > 0
 GROUP BY
     analysis_date,
     day_type,
@@ -349,16 +324,12 @@ SELECT
     COUNT(DISTINCT analysis_date) as total_days,
     COUNT(*) as total_hours,
 
-    -- Mobility totals
+    -- Subway totals
     SUM(total_subway_ridership) as total_subway_rides,
-    SUM(total_rideshare_trips) as total_rideshare_trips,
-    SUM(total_mobility_trips) as total_mobility_all_modes,
-
-    -- Averages
     ROUND(AVG(total_subway_ridership), 0) as avg_hourly_subway,
-    ROUND(AVG(total_rideshare_trips), 0) as avg_hourly_rideshare,
-    ROUND(AVG(avg_rideshare_cost), 2) as overall_avg_ride_cost,
-    ROUND(AVG(avg_rideshare_duration_min), 2) as overall_avg_ride_duration,
+
+    -- OMNY adoption
+    ROUND(AVG(omny_pct), 2) as avg_omny_adoption_pct,
 
     -- Weather summary
     ROUND(AVG(avg_temp_f), 1) as avg_temperature,
@@ -366,9 +337,9 @@ SELECT
     SUM(CASE WHEN has_snow = 1 THEN 1 ELSE 0 END) as hours_with_snow,
 
     -- Crime summary
-    SUM(daily_total_crimes) / COUNT(DISTINCT analysis_date) as avg_daily_crimes
+    ROUND(SUM(daily_total_crimes) / COUNT(DISTINCT analysis_date), 0) as avg_daily_crimes
 
-FROM hive.default.analytics_hourly_mobility;
+FROM hive.default.analytics_hourly_subway;
 
 -- ============================================
 -- ALL QUERIES COMPLETE

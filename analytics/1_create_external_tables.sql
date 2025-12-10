@@ -4,12 +4,10 @@
 -- This script creates external tables for all processed datasets:
 -- - Weather (hourly)
 -- - MTA Subway (hourly, by station/payment method)
--- - Rideshare (hourly, by location - aggregated via MapReduce)
 -- - Crime (daily)
 --
 -- Prerequisites:
--- 1. MTA MapReduce pipeline must be run: make run-mta
--- 2. Rideshare MapReduce aggregation must be run: make run-rideshare
+-- 1. MTA MapReduce pipeline must be run: cd preprocessing/mta_preprocessing && make run
 --
 -- Run: trino --catalog hive --schema default -f 1_create_external_tables.sql
 -- ============================================
@@ -123,67 +121,6 @@ GROUP BY
 SELECT 'MTA Aggregated' as dataset, COUNT(*) as records FROM hive.default.mta_hourly_agg;
 
 -- ============================================
--- RIDESHARE DATA (Hourly by Location - MapReduce Output)
--- ============================================
-
-DROP TABLE IF EXISTS hive.default.rideshare_hourly_agg_csv;
-
-CREATE EXTERNAL TABLE hive.default.rideshare_hourly_agg_csv (
-    pickup_hour VARCHAR,
-    pickup_location_id VARCHAR,
-    trip_count VARCHAR,
-    avg_base_fare VARCHAR,
-    avg_tolls VARCHAR,
-    avg_tips VARCHAR,
-    avg_driver_pay VARCHAR,
-    avg_total_cost VARCHAR,
-    avg_trip_duration_sec VARCHAR,
-    avg_trip_miles VARCHAR,
-    shared_request_count VARCHAR,
-    shared_match_count VARCHAR,
-    shared_match_pct VARCHAR,
-    wheelchair_request_count VARCHAR,
-    wheelchair_match_count VARCHAR
-)
-ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','
-STORED AS TEXTFILE
-LOCATION 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/rideshare_processed/hourly_agg'
-TBLPROPERTIES (
-    'skip.header.line.count'='0'
-);
-
--- Convert to Parquet
-DROP TABLE IF EXISTS hive.default.rideshare_hourly_agg;
-
-CREATE TABLE hive.default.rideshare_hourly_agg
-WITH (format = 'PARQUET')
-AS
-SELECT
-    CAST(FROM_ISO8601_TIMESTAMP(pickup_hour) AS TIMESTAMP) as pickup_hour,
-    CAST(pickup_location_id AS INTEGER) as pickup_location_id,
-    CAST(trip_count AS INTEGER) as trip_count,
-    CAST(avg_base_fare AS DOUBLE) as avg_base_fare,
-    CAST(avg_tolls AS DOUBLE) as avg_tolls,
-    CAST(avg_tips AS DOUBLE) as avg_tips,
-    CAST(avg_driver_pay AS DOUBLE) as avg_driver_pay,
-    CAST(avg_total_cost AS DOUBLE) as avg_total_cost,
-    CAST(avg_trip_duration_sec AS DOUBLE) as avg_trip_duration_sec,
-    ROUND(CAST(avg_trip_duration_sec AS DOUBLE) / 60, 2) as avg_trip_duration_min,
-    CAST(avg_trip_miles AS DOUBLE) as avg_trip_miles,
-    CAST(shared_request_count AS INTEGER) as shared_request_count,
-    CAST(shared_match_count AS INTEGER) as shared_match_count,
-    CAST(shared_match_pct AS DOUBLE) as shared_match_pct,
-    CAST(wheelchair_request_count AS INTEGER) as wheelchair_request_count,
-    CAST(wheelchair_match_count AS INTEGER) as wheelchair_match_count,
-    DATE(CAST(FROM_ISO8601_TIMESTAMP(pickup_hour) AS TIMESTAMP)) as pickup_date
-FROM hive.default.rideshare_hourly_agg_csv
-WHERE pickup_hour IS NOT NULL
-    AND TRY_CAST(FROM_ISO8601_TIMESTAMP(pickup_hour) AS TIMESTAMP) IS NOT NULL;
-
-SELECT 'Rideshare Aggregated' as dataset, COUNT(*) as records FROM hive.default.rideshare_hourly_agg;
-
--- ============================================
 -- CRIME DATA (Daily)
 -- ============================================
 
@@ -252,7 +189,6 @@ SELECT
     'EXTERNAL TABLES CREATED' as status,
     (SELECT COUNT(*) FROM hive.default.weather_hourly) as weather_records,
     (SELECT COUNT(*) FROM hive.default.mta_hourly_agg) as mta_records,
-    (SELECT COUNT(*) FROM hive.default.rideshare_hourly_agg) as rideshare_records,
     (SELECT COUNT(*) FROM hive.default.crime_daily_agg) as crime_records;
 
 -- ============================================
