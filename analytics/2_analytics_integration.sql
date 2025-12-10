@@ -78,10 +78,7 @@ LEFT JOIN mta_hourly_agg m
 
 -- Left join Crime data (daily - same values for all hours in a day)
 LEFT JOIN crime_daily_agg c
-    ON w.weather_date = c.crime_date
-
-ORDER BY
-    w.weather_hour;
+    ON w.weather_date = c.crime_date;
 
 -- ============================================
 -- VERIFICATION QUERIES
