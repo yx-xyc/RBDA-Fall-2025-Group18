@@ -17,13 +17,13 @@ Before running these SQL scripts, you must complete the MapReduce preprocessing:
 1. **MTA Preprocessing**
    ```bash
    cd ../preprocessing/mta_preprocessing
-   make run-mta
+   make run
    ```
 
 2. **Rideshare Aggregation** (Important: Use MapReduce, not Trino CTAS)
    ```bash
-   cd ../preprocessing/mta_preprocessing
-   make run-rideshare
+   cd ../preprocessing/rideshare
+   make run
    ```
 
 ## Execution Order
