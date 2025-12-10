@@ -33,8 +33,8 @@ public class RideshareHourlyAgg {
 
     public static class AggregationMapper extends Mapper<LongWritable, Text, Text, Text> {
 
-        // ISO 8601 format: 2024-01-01T00:00:00
-        private SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+        // Format: 2024-01-01 00:00:00 (space-separated, not ISO 8601 'T')
+        private SimpleDateFormat inputDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
         private SimpleDateFormat outputDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:00:00");
 
         @Override
