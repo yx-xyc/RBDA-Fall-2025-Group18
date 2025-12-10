@@ -10,16 +10,16 @@
 -- Prerequisites:
 -- 1. MTA MapReduce pipeline must be run: cd preprocessing/mta_preprocessing && make run
 --
--- Run: trino --catalog hive --schema default -f 1_create_external_tables.sql
+-- Run: trino --catalog hive --schema yx2021_nyu_edu -f 1_create_external_tables.sql
 -- ============================================
 
 -- ============================================
 -- MTA STATION METADATA (Dimension Table)
 -- ============================================
 
-DROP TABLE IF EXISTS hive.default.mta_stations_csv;
+DROP TABLE IF EXISTS mta_stations_csv;
 
-CREATE EXTERNAL TABLE hive.default.mta_stations_csv (
+CREATE TABLE mta_stations_csv (
     complex_id VARCHAR,
     is_complex VARCHAR,
     num_stations_in_complex VARCHAR,
@@ -37,18 +37,16 @@ CREATE EXTERNAL TABLE hive.default.mta_stations_csv (
     ada VARCHAR,
     ada_notes VARCHAR
 )
-ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','
-STORED AS TEXTFILE
-LOCATION 'hdfs:///user/yx2021_nyu_edu/project'
-TBLPROPERTIES (
-    'skip.header.line.count'='1'
+WITH (
+    format = 'CSV',
+    skip_header_line_count = 1,
+    external_location = 'hdfs:///user/yx2021_nyu_edu/project'
 );
 
 -- Convert to Parquet
-DROP TABLE IF EXISTS hive.default.mta_stations;
+DROP TABLE IF EXISTS mta_stations;
 
-CREATE TABLE hive.default.mta_stations
+CREATE TABLE mta_stations
 WITH (format = 'PARQUET')
 AS
 SELECT
@@ -65,19 +63,19 @@ SELECT
     CAST(longitude AS DOUBLE) as longitude,
     CAST(ada AS INTEGER) as ada_accessible,
     ada_notes
-FROM hive.default.mta_stations_csv
+FROM mta_stations_csv
 WHERE complex_id IS NOT NULL
     AND TRY_CAST(complex_id AS INTEGER) IS NOT NULL;
 
-SELECT 'MTA Stations' as dataset, COUNT(*) as records FROM hive.default.mta_stations;
+SELECT 'MTA Stations' as dataset, COUNT(*) as records FROM mta_stations;
 
 -- ============================================
 -- WEATHER DATA (Hourly)
 -- ============================================
 
-DROP TABLE IF EXISTS hive.default.weather_hourly_csv;
+DROP TABLE IF EXISTS weather_hourly_csv;
 
-CREATE EXTERNAL TABLE hive.default.weather_hourly_csv (
+CREATE TABLE weather_hourly_csv (
     date_hour VARCHAR,
     avg_temp VARCHAR,
     avg_humidity VARCHAR,
@@ -90,18 +88,16 @@ CREATE EXTERNAL TABLE hive.default.weather_hourly_csv (
     dom_wind_dir VARCHAR,
     dom_conditions VARCHAR
 )
-ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','
-STORED AS TEXTFILE
-LOCATION 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/weather_hourly'
-TBLPROPERTIES (
-    'skip.header.line.count'='0'
+WITH (
+    format = 'CSV',
+    skip_header_line_count = 0,
+    external_location = 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/weather_hourly'
 );
 
 -- Convert to Parquet for efficient querying
-DROP TABLE IF EXISTS hive.default.weather_hourly;
+DROP TABLE IF EXISTS weather_hourly;
 
-CREATE TABLE hive.default.weather_hourly
+CREATE TABLE weather_hourly
 WITH (format = 'PARQUET')
 AS
 SELECT
@@ -118,36 +114,34 @@ SELECT
     dom_wind_dir,
     dom_conditions,
     DATE(CAST(date_hour || ':00:00' AS TIMESTAMP)) as weather_date
-FROM hive.default.weather_hourly_csv
+FROM weather_hourly_csv
 WHERE date_hour IS NOT NULL
     AND TRY_CAST(date_hour || ':00:00' AS TIMESTAMP) IS NOT NULL;
 
-SELECT 'Weather' as dataset, COUNT(*) as records FROM hive.default.weather_hourly;
+SELECT 'Weather' as dataset, COUNT(*) as records FROM weather_hourly;
 
 -- ============================================
 -- MTA SUBWAY DATA (Hourly by Station/Payment)
 -- ============================================
 
-DROP TABLE IF EXISTS hive.default.mta_station_hourly_csv;
+DROP TABLE IF EXISTS mta_station_hourly_csv;
 
-CREATE EXTERNAL TABLE hive.default.mta_station_hourly_csv (
+CREATE TABLE mta_station_hourly_csv (
     transit_timestamp VARCHAR,
     station_complex_id VARCHAR,
     payment_method VARCHAR,
     total_ridership VARCHAR
 )
-ROW FORMAT DELIMITED
-FIELDS TERMINATED BY ','
-STORED AS TEXTFILE
-LOCATION 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/mta_processed/station_hourly'
-TBLPROPERTIES (
-    'skip.header.line.count'='0'
+WITH (
+    format = 'CSV',
+    skip_header_line_count = 0,
+    external_location = 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/mta_processed/station_hourly'
 );
 
 -- Convert to Parquet and aggregate citywide (across all stations)
-DROP TABLE IF EXISTS hive.default.mta_hourly_agg;
+DROP TABLE IF EXISTS mta_hourly_agg;
 
-CREATE TABLE hive.default.mta_hourly_agg
+CREATE TABLE mta_hourly_agg
 WITH (format = 'PARQUET')
 AS
 SELECT
@@ -169,7 +163,7 @@ SELECT
           NULLIF(SUM(CAST(total_ridership AS BIGINT)), 0), 2) as omny_pct,
 
     DATE(CAST(transit_timestamp AS TIMESTAMP)) as transit_date
-FROM hive.default.mta_station_hourly_csv
+FROM mta_station_hourly_csv
 WHERE transit_timestamp IS NOT NULL
     AND total_ridership IS NOT NULL
     AND TRY_CAST(transit_timestamp AS TIMESTAMP) IS NOT NULL
@@ -177,16 +171,16 @@ GROUP BY
     DATE_TRUNC('hour', CAST(transit_timestamp AS TIMESTAMP)),
     DATE(CAST(transit_timestamp AS TIMESTAMP));
 
-SELECT 'MTA Aggregated' as dataset, COUNT(*) as records FROM hive.default.mta_hourly_agg;
+SELECT 'MTA Aggregated' as dataset, COUNT(*) as records FROM mta_hourly_agg;
 
 -- ============================================
 -- MTA SUBWAY DATA WITH STATION METADATA
 -- ============================================
 -- This table joins ridership with station metadata for station-level analysis
 
-DROP TABLE IF EXISTS hive.default.mta_station_hourly;
+DROP TABLE IF EXISTS mta_station_hourly;
 
-CREATE TABLE hive.default.mta_station_hourly
+CREATE TABLE mta_station_hourly
 WITH (format = 'PARQUET')
 AS
 SELECT
@@ -210,36 +204,35 @@ SELECT
     r.payment_method,
     CAST(r.total_ridership AS BIGINT) as ridership
 
-FROM hive.default.mta_station_hourly_csv r
-LEFT JOIN hive.default.mta_stations s
+FROM mta_station_hourly_csv r
+LEFT JOIN mta_stations s
     ON CAST(r.station_complex_id AS INTEGER) = s.complex_id
 WHERE r.transit_timestamp IS NOT NULL
     AND r.total_ridership IS NOT NULL
     AND TRY_CAST(r.transit_timestamp AS TIMESTAMP) IS NOT NULL;
 
-SELECT 'MTA Station-Level' as dataset, COUNT(*) as records FROM hive.default.mta_station_hourly;
+SELECT 'MTA Station-Level' as dataset, COUNT(*) as records FROM mta_station_hourly;
 
 -- ============================================
 -- CRIME DATA (Daily)
 -- ============================================
 -- Note: Crime data uses PIPE delimiters: date|offense|borough,count,lat,lon
 
-DROP TABLE IF EXISTS hive.default.crime_daily_raw;
+DROP TABLE IF EXISTS crime_daily_raw;
 
-CREATE EXTERNAL TABLE hive.default.crime_daily_raw (
+CREATE TABLE crime_daily_raw (
     raw_line VARCHAR
 )
-ROW FORMAT DELIMITED
-STORED AS TEXTFILE
-LOCATION 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/crime_daily'
-TBLPROPERTIES (
-    'skip.header.line.count'='0'
+WITH (
+    format = 'TEXTFILE',
+    skip_header_line_count = 0,
+    external_location = 'hdfs:///user/yx2021_nyu_edu/project/preprocessing/crime_daily'
 );
 
 -- Parse and aggregate crime data
-DROP TABLE IF EXISTS hive.default.crime_daily_agg;
+DROP TABLE IF EXISTS crime_daily_agg;
 
-CREATE TABLE hive.default.crime_daily_agg
+CREATE TABLE crime_daily_agg
 WITH (format = 'PARQUET')
 AS
 SELECT
@@ -316,14 +309,14 @@ SELECT
     COUNT(DISTINCT SPLIT_PART(raw_line, '|', 2)) as unique_offense_types,
     COUNT(DISTINCT SPLIT_PART(SPLIT_PART(raw_line, '|', 3), ',', 1)) as boroughs_with_crimes
 
-FROM hive.default.crime_daily_raw
+FROM crime_daily_raw
 WHERE raw_line IS NOT NULL
     AND LENGTH(raw_line) > 0
     AND TRY_CAST(SPLIT_PART(raw_line, '|', 1) || ':00:00' AS TIMESTAMP) IS NOT NULL
 GROUP BY
     DATE(CAST(SPLIT_PART(raw_line, '|', 1) || ':00:00' AS TIMESTAMP));
 
-SELECT 'Crime Daily' as dataset, COUNT(*) as records FROM hive.default.crime_daily_agg;
+SELECT 'Crime Daily' as dataset, COUNT(*) as records FROM crime_daily_agg;
 
 -- ============================================
 -- SUMMARY
@@ -331,11 +324,11 @@ SELECT 'Crime Daily' as dataset, COUNT(*) as records FROM hive.default.crime_dai
 
 SELECT
     'EXTERNAL TABLES CREATED' as status,
-    (SELECT COUNT(*) FROM hive.default.mta_stations) as station_metadata_records,
-    (SELECT COUNT(*) FROM hive.default.weather_hourly) as weather_records,
-    (SELECT COUNT(*) FROM hive.default.mta_hourly_agg) as mta_citywide_records,
-    (SELECT COUNT(*) FROM hive.default.mta_station_hourly) as mta_station_records,
-    (SELECT COUNT(*) FROM hive.default.crime_daily_agg) as crime_records;
+    (SELECT COUNT(*) FROM mta_stations) as station_metadata_records,
+    (SELECT COUNT(*) FROM weather_hourly) as weather_records,
+    (SELECT COUNT(*) FROM mta_hourly_agg) as mta_citywide_records,
+    (SELECT COUNT(*) FROM mta_station_hourly) as mta_station_records,
+    (SELECT COUNT(*) FROM crime_daily_agg) as crime_records;
 
 -- ============================================
 -- COMPLETE
