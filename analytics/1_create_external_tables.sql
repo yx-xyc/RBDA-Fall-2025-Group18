@@ -52,20 +52,23 @@ AS
 SELECT
     CAST(complex_id AS INTEGER) as complex_id,
     CASE WHEN LOWER(is_complex) = 'true' THEN 1 ELSE 0 END as is_complex,
-    CAST(num_stations_in_complex AS INTEGER) as num_stations_in_complex,
+    TRY_CAST(num_stations_in_complex AS INTEGER) as num_stations_in_complex,
     stop_name,
     display_name,
     borough,
     CASE WHEN LOWER(cbd) = 'true' THEN 1 ELSE 0 END as is_cbd,
     daytime_routes,
     structure_type,
-    CAST(latitude AS DOUBLE) as latitude,
-    CAST(longitude AS DOUBLE) as longitude,
-    CAST(ada AS INTEGER) as ada_accessible,
+    TRY_CAST(latitude AS DOUBLE) as latitude,
+    TRY_CAST(longitude AS DOUBLE) as longitude,
+    TRY_CAST(ada AS INTEGER) as ada_accessible,
     ada_notes
 FROM mta_stations_csv
 WHERE complex_id IS NOT NULL
-    AND TRY_CAST(complex_id AS INTEGER) IS NOT NULL;
+    AND TRY_CAST(complex_id AS INTEGER) IS NOT NULL
+    AND TRY_CAST(num_stations_in_complex AS INTEGER) IS NOT NULL
+    AND TRY_CAST(latitude AS DOUBLE) IS NOT NULL
+    AND TRY_CAST(longitude AS DOUBLE) IS NOT NULL;
 
 SELECT 'MTA Stations' as dataset, COUNT(*) as records FROM mta_stations;
 
