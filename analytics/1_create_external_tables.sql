@@ -105,7 +105,8 @@ WITH (format = 'PARQUET')
 AS
 SELECT
     -- Parse truncated hour format: 2024-01-01T01 -> 2024-01-01 01:00:00
-    CAST(date_hour || ':00:00' AS TIMESTAMP) as weather_hour,
+    -- Replace 'T' with space and append seconds: 2024-01-01 01:00:00
+    CAST(REPLACE(date_hour, 'T', ' ') || ':00:00' AS TIMESTAMP) as weather_hour,
     CAST(avg_temp AS DOUBLE) as avg_temp_f,
     CAST(avg_humidity AS DOUBLE) as avg_humidity_pct,
     CAST(total_precip AS DOUBLE) as total_precip_inch,
@@ -116,10 +117,10 @@ SELECT
     dom_precip_type,
     dom_wind_dir,
     dom_conditions,
-    DATE(CAST(date_hour || ':00:00' AS TIMESTAMP)) as weather_date
+    DATE(CAST(REPLACE(date_hour, 'T', ' ') || ':00:00' AS TIMESTAMP)) as weather_date
 FROM weather_hourly_csv
 WHERE date_hour IS NOT NULL
-    AND TRY_CAST(date_hour || ':00:00' AS TIMESTAMP) IS NOT NULL;
+    AND TRY_CAST(REPLACE(date_hour, 'T', ' ') || ':00:00' AS TIMESTAMP) IS NOT NULL;
 
 SELECT 'Weather' as dataset, COUNT(*) as records FROM weather_hourly;
 
@@ -192,7 +193,7 @@ SELECT
     DATE(CAST(r.transit_timestamp AS TIMESTAMP)) as transit_date,
 
     -- Station info
-    CAST(r.station_complex_id AS INTEGER) as station_complex_id,
+    TRY_CAST(r.station_complex_id AS INTEGER) as station_complex_id,
     s.stop_name,
     s.display_name,
     s.borough,
@@ -209,10 +210,11 @@ SELECT
 
 FROM mta_station_hourly_csv r
 LEFT JOIN mta_stations s
-    ON CAST(r.station_complex_id AS INTEGER) = s.complex_id
+    ON TRY_CAST(r.station_complex_id AS INTEGER) = s.complex_id
 WHERE r.transit_timestamp IS NOT NULL
     AND r.total_ridership IS NOT NULL
-    AND TRY_CAST(r.transit_timestamp AS TIMESTAMP) IS NOT NULL;
+    AND TRY_CAST(r.transit_timestamp AS TIMESTAMP) IS NOT NULL
+    AND TRY_CAST(r.station_complex_id AS INTEGER) IS NOT NULL;
 
 SELECT 'MTA Station-Level' as dataset, COUNT(*) as records FROM mta_station_hourly;
 
