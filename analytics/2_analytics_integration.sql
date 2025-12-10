@@ -8,12 +8,12 @@
 --
 -- Prerequisites: Run 1_create_external_tables.sql first
 --
--- Run: trino --catalog hive --schema default -f 2_analytics_integration.sql
+-- Run: trino --catalog hive --schema yx2021_nyu_edu -f 2_analytics_integration.sql
 -- ============================================
 
-DROP TABLE IF EXISTS hive.default.analytics_hourly_subway;
+DROP TABLE IF EXISTS analytics_hourly_subway;
 
-CREATE TABLE hive.default.analytics_hourly_subway
+CREATE TABLE analytics_hourly_subway
 WITH (
     format = 'PARQUET',
     partitioned_by = ARRAY['analysis_date']
@@ -70,14 +70,14 @@ SELECT
     -- ===== PARTITION COLUMN =====
     w.weather_date as analysis_date
 
-FROM hive.default.weather_hourly w
+FROM weather_hourly w
 
 -- Left join MTA data (hourly)
-LEFT JOIN hive.default.mta_hourly_agg m
+LEFT JOIN mta_hourly_agg m
     ON w.weather_hour = m.transit_hour
 
 -- Left join Crime data (daily - same values for all hours in a day)
-LEFT JOIN hive.default.crime_daily_agg c
+LEFT JOIN crime_daily_agg c
     ON w.weather_date = c.crime_date
 
 ORDER BY
@@ -93,11 +93,11 @@ SELECT
     COUNT(DISTINCT analysis_date) as total_days,
     MIN(hour_timestamp) as earliest_hour,
     MAX(hour_timestamp) as latest_hour
-FROM hive.default.analytics_hourly_subway;
+FROM analytics_hourly_subway;
 
 -- Sample the data
 SELECT *
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway
 ORDER BY hour_timestamp DESC
 LIMIT 10;
 
@@ -108,7 +108,7 @@ SELECT
     SUM(total_subway_ridership) as daily_subway_rides,
     AVG(avg_temp_f) as avg_daily_temp,
     MAX(daily_total_crimes) as daily_crimes
-FROM hive.default.analytics_hourly_subway
+FROM analytics_hourly_subway
 GROUP BY analysis_date
 ORDER BY analysis_date DESC
 LIMIT 10;
