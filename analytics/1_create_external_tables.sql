@@ -241,8 +241,8 @@ CREATE TABLE crime_daily_agg
 WITH (format = 'PARQUET')
 AS
 SELECT
-    -- Extract and parse date (before first pipe)
-    DATE(CAST(SPLIT_PART(raw_line, '|', 1) || ':00:00' AS TIMESTAMP)) as crime_date,
+    -- Extract and parse date (before first pipe): 2024-01-01T00 -> 2024-01-01
+    DATE(CAST(REPLACE(SPLIT_PART(raw_line, '|', 1), 'T', ' ') || ':00:00' AS TIMESTAMP)) as crime_date,
 
     -- Total crime count
     SUM(CAST(SPLIT_PART(SPLIT_PART(raw_line, '|', 3), ',', 2) AS BIGINT)) as total_crimes,
@@ -317,9 +317,9 @@ SELECT
 FROM crime_daily_raw
 WHERE raw_line IS NOT NULL
     AND LENGTH(raw_line) > 0
-    AND TRY_CAST(SPLIT_PART(raw_line, '|', 1) || ':00:00' AS TIMESTAMP) IS NOT NULL
+    AND TRY_CAST(REPLACE(SPLIT_PART(raw_line, '|', 1), 'T', ' ') || ':00:00' AS TIMESTAMP) IS NOT NULL
 GROUP BY
-    DATE(CAST(SPLIT_PART(raw_line, '|', 1) || ':00:00' AS TIMESTAMP));
+    DATE(CAST(REPLACE(SPLIT_PART(raw_line, '|', 1), 'T', ' ') || ':00:00' AS TIMESTAMP));
 
 SELECT 'Crime Daily' as dataset, COUNT(*) as records FROM crime_daily_agg;
 
