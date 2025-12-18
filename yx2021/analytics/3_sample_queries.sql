@@ -1,13 +1,4 @@
 -- ============================================
--- SAMPLE ANALYTICAL QUERIES
--- ============================================
--- Weather, MTA Subway, and Crime Analysis
--- Run: trino --catalog hive --schema default -f 3_sample_queries.sql
---
--- Prerequisites: Run 1_create_external_tables.sql and 2_analytics_integration.sql first
--- ============================================
-
--- ============================================
 -- Query 1: Weather Impact on Subway Ridership
 -- ============================================
 -- Question: How does precipitation affect subway usage?
@@ -326,7 +317,3 @@ SELECT
     ROUND(SUM(daily_total_crimes) / COUNT(DISTINCT analysis_date), 0) as avg_daily_crimes
 
 FROM analytics_hourly_subway_v3;
-
--- ============================================
--- ALL QUERIES COMPLETE
--- ============================================

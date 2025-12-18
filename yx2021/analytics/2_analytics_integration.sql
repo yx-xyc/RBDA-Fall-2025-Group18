@@ -1,15 +1,3 @@
--- ============================================
--- ANALYTICS INTEGRATION - FINAL TABLE
--- ============================================
--- This script creates the final analytical table by joining:
--- - Weather (time spine, hourly)
--- - MTA Subway (hourly, aggregated citywide)
--- - Crime (daily, same values for all hours in a day)
---
--- Prerequisites: Run 1_create_external_tables.sql first
---
--- Run: trino --catalog hive --schema yx2021_nyu_edu -f 2_analytics_integration.sql
--- ============================================
 
 DROP TABLE IF EXISTS analytics_hourly_subway_v3;
 
@@ -79,10 +67,6 @@ LEFT JOIN mta_hourly_agg m
 LEFT JOIN crime_daily_agg c
     ON w.weather_date = c.crime_date;
 
--- ============================================
--- VERIFICATION QUERIES
--- ============================================
-
 SELECT
     'Analytics Table Created' as status,
     COUNT(*) as total_hours,
@@ -108,8 +92,3 @@ FROM analytics_hourly_subway_v3
 GROUP BY analysis_date
 ORDER BY analysis_date DESC
 LIMIT 10;
-
--- ============================================
--- COMPLETE
--- ============================================
--- Next: Run 3_sample_queries.sql for analytical insights

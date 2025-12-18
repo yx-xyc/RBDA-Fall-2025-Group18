@@ -1,21 +1,3 @@
--- ============================================
--- CREATE EXTERNAL TABLES FOR ALL DATASETS
--- ============================================
--- This script creates external tables for all processed datasets:
--- - MTA Station Metadata (dimension table)
--- - Weather (hourly)
--- - MTA Subway (hourly, by station/payment method)
--- - Crime (daily)
---
--- Prerequisites:
--- 1. MTA MapReduce pipeline must be run: cd preprocessing/mta_preprocessing && make run
---
--- Run: trino --catalog hive --schema yx2021_nyu_edu -f 1_create_external_tables.sql
--- ============================================
-
--- ============================================
--- MTA STATION METADATA (Dimension Table)
--- ============================================
 
 DROP TABLE IF EXISTS mta_stations_csv;
 
@@ -72,10 +54,6 @@ WHERE complex_id IS NOT NULL
 
 SELECT 'MTA Stations' as dataset, COUNT(*) as records FROM mta_stations;
 
--- ============================================
--- WEATHER DATA (Hourly)
--- ============================================
-
 DROP TABLE IF EXISTS weather_hourly_csv;
 
 CREATE TABLE weather_hourly_csv (
@@ -123,10 +101,6 @@ WHERE date_hour IS NOT NULL
     AND TRY_CAST(REPLACE(date_hour, 'T', ' ') || ':00:00' AS TIMESTAMP) IS NOT NULL;
 
 SELECT 'Weather' as dataset, COUNT(*) as records FROM weather_hourly;
-
--- ============================================
--- MTA SUBWAY DATA (Hourly by Station/Payment)
--- ============================================
 
 DROP TABLE IF EXISTS mta_station_hourly_csv;
 
@@ -177,10 +151,6 @@ GROUP BY
 
 SELECT 'MTA Aggregated' as dataset, COUNT(*) as records FROM mta_hourly_agg;
 
--- ============================================
--- MTA SUBWAY DATA WITH STATION METADATA
--- ============================================
--- This table joins ridership with station metadata for station-level analysis
 
 DROP TABLE IF EXISTS mta_station_hourly;
 
@@ -218,10 +188,6 @@ WHERE r.transit_timestamp IS NOT NULL
 
 SELECT 'MTA Station-Level' as dataset, COUNT(*) as records FROM mta_station_hourly;
 
--- ============================================
--- CRIME DATA (Daily)
--- ============================================
--- Note: Crime data uses PIPE delimiters: date|offense|borough,count,lat,lon
 
 DROP TABLE IF EXISTS crime_daily_raw;
 
@@ -323,9 +289,6 @@ GROUP BY
 
 SELECT 'Crime Daily' as dataset, COUNT(*) as records FROM crime_daily_agg;
 
--- ============================================
--- SUMMARY
--- ============================================
 
 SELECT
     'EXTERNAL TABLES CREATED' as status,
@@ -335,7 +298,3 @@ SELECT
     (SELECT COUNT(*) FROM mta_station_hourly) as mta_station_records,
     (SELECT COUNT(*) FROM crime_daily_agg) as crime_records;
 
--- ============================================
--- COMPLETE
--- ============================================
--- Next: Run 2_analytics_integration.sql
