@@ -1,0 +1,128 @@
+To generate the CSV files for analysis, I executed the following 
+shell commands in the HPC terminal.
+
+--------------------------------------------------------------------------------
+CONFIGURATION
+--------------------------------------------------------------------------------
+
+    CATALOG = "hive"
+    SCHEMA  = "sh8314_nyu_edu"
+
+--------------------------------------------------------------------------------
+COMMAND 1: Export Rain Effect Data
+--------------------------------------------------------------------------------
+
+Description:
+    Aggregates rideshare data by rain condition to analyze impact on trips.
+
+Query:
+
+    trino --catalog $CATALOG --schema $SCHEMA \
+          --output-format CSV_UNQUOTED \
+          --execute "
+        SELECT 
+            rain_simple,
+            COUNT(*) AS num_hours,
+            ROUND(AVG(total_trips), 0) AS avg_trips_per_hour,
+            ROUND(AVG(avg_fare), 2) AS avg_fare,
+            ROUND(AVG(avg_tips), 2) AS avg_tips,
+            ROUND(AVG(avg_distance), 2) AS avg_distance
+        FROM weather_rideshare_analysis
+        GROUP BY rain_simple
+        ORDER BY rain_simple
+    " > rain_effect.csv
+
+--------------------------------------------------------------------------------
+COMMAND 2: Export Temperature Analysis
+--------------------------------------------------------------------------------
+
+Description:
+    Groups data by temperature categories (Freezing to Hot) to observe trends 
+    in ridership.
+
+Query:
+
+    trino --catalog $CATALOG --schema $SCHEMA \
+          --output-format CSV_HEADER_UNQUOTED \
+          --execute "
+        SELECT
+            temp_category,
+            COUNT(*) AS num_hours,
+            ROUND(AVG(temperature), 1) AS avg_temp,
+            ROUND(AVG(total_trips), 0) AS avg_trips_per_hour,
+            ROUND(AVG(avg_fare), 2) AS avg_fare
+        FROM weather_rideshare_analysis
+        GROUP BY temp_category
+        ORDER BY 
+            CASE temp_category
+                WHEN 'Freezing' THEN 1
+                WHEN 'Cold' THEN 2
+                WHEN 'Cool' THEN 3
+                WHEN 'Comfortable' THEN 4
+                WHEN 'Warm' THEN 5
+                WHEN 'Hot' THEN 6
+            END
+    " > temperature_analysis.csv
+
+--------------------------------------------------------------------------------
+COMMAND 3: Export Rain Category Analysis
+--------------------------------------------------------------------------------
+
+Description:
+    Aggregates rideshare data by detailed rain categories (No Rain, Light, 
+    Moderate, Heavy) to analyze precipitation impact on trips and fares.
+
+Query:
+
+    trino --catalog $CATALOG --schema $SCHEMA \
+          --output-format CSV_UNQUOTED \
+          --execute "
+        SELECT
+            rain_category,
+            COUNT(*) AS num_hours,
+            ROUND(AVG(total_trips), 0) AS avg_trips_per_hour,
+            ROUND(AVG(avg_fare), 2) AS avg_fare,
+            ROUND(AVG(precipitation), 3) AS avg_precipitation
+        FROM weather_rideshare_analysis
+        GROUP BY rain_category
+        ORDER BY
+            CASE rain_category
+                WHEN 'No Rain' THEN 1
+                WHEN 'Light Rain' THEN 2
+                WHEN 'Moderate Rain' THEN 3
+                WHEN 'Heavy Rain' THEN 4
+            END
+    " > rain_category_analysis.csv
+
+--------------------------------------------------------------------------------
+COMMAND 4: Export Day of Week + Rain Analysis
+--------------------------------------------------------------------------------
+
+Description:
+    Analyzes average trips by day of week and rain condition to identify 
+    weekly patterns in ridership during different weather conditions.
+
+Query:
+
+    trino --catalog $CATALOG --schema $SCHEMA \
+          --output-format CSV_HEADER_UNQUOTED \
+          --execute "
+        SELECT
+            day_of_week,
+            rain_simple,
+            COUNT(*) AS num_hours,
+            ROUND(AVG(total_trips), 0) AS avg_trips
+        FROM weather_rideshare_analysis
+        GROUP BY day_of_week, rain_simple
+        ORDER BY
+            CASE day_of_week
+                WHEN 'Monday' THEN 1
+                WHEN 'Tuesday' THEN 2
+                WHEN 'Wednesday' THEN 3
+                WHEN 'Thursday' THEN 4
+                WHEN 'Friday' THEN 5
+                WHEN 'Saturday' THEN 6
+                WHEN 'Sunday' THEN 7
+            END,
+            rain_simple
+    " > day_rain_analysis.csv
